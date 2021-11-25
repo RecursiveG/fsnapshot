@@ -50,6 +50,7 @@ flags.DEFINE_string("take_snapshot", None, "Folder to take snapshot of. Writes t
 flags.DEFINE_string("update_snapshot", None,
                     "Folder used to update a snapshot. this+snapshot_in -> snapshot_out+changelist_out")
 flags.DEFINE_string("copy_from", None, "Requires copy_to & changelist_in")
+flags.DEFINE_string("quick_compare", None, "Compare this folder with snapshot_in")
 flags.DEFINE_string("copy_to", None, "")
 flags.DEFINE_string("snapshot_in", None, "")
 flags.DEFINE_string("snapshot_out", None, "The snapshot file to write into")
@@ -97,21 +98,24 @@ def update_snapshot(d: Path, root: Path, old_snapshot: Dict[str, FileSnapshot]) 
     global progress_bar
     assert d.is_dir(), str(d) + " is not a folder"
     ret = dict()
-    for infile in d.iterdir():
-        if infile.is_dir():
-            sub_dir_result = update_snapshot(infile, root, old_snapshot)
-            ret.update(sub_dir_result)
-        elif infile.is_file():
-            fpath = str(infile.relative_to(root))
-            fsize = infile.stat().st_size
-            if fpath in old_snapshot and fsize == old_snapshot[fpath].size:
-                # same name and same size, assuming file unchanged
-                ret[fpath] = old_snapshot[fpath]
-            else:
-                # recompute
-                snap = FileSnapshot(path=fpath, size=fsize, xxh3=xxh3_file(infile))
-                ret[fpath] = snap
-            progress_bar.update(fsize)
+    try:
+        for infile in d.iterdir():
+            if infile.is_dir():
+                sub_dir_result = update_snapshot(infile, root, old_snapshot)
+                ret.update(sub_dir_result)
+            elif infile.is_file():
+                fpath = str(infile.relative_to(root))
+                fsize = infile.stat().st_size
+                if fpath in old_snapshot and fsize == old_snapshot[fpath].size:
+                    # same name and same size, assuming file unchanged
+                    ret[fpath] = old_snapshot[fpath]
+                else:
+                    # recompute
+                    snap = FileSnapshot(path=fpath, size=fsize, xxh3=xxh3_file(infile))
+                    ret[fpath] = snap
+                progress_bar.update(fsize)
+    except PermissionError:
+        print("update_snapshot permission err:", str(d))
     return ret
 
 
@@ -145,6 +149,25 @@ def diff_snapshot(old_snapshot: Dict[str, FileSnapshot], new_snapshot: Dict[str,
                             new_xxh3=v.xxh3,
                             old_size=vold.size,
                             new_size=v.size)
+    return ret
+
+
+def quick_scan(d: Path, root: Path) -> Dict[str, int]:
+    global progress_bar
+    assert d.is_dir(), str(d) + " is not a folder"
+    ret = dict()
+    try:
+        for infile in d.iterdir():
+            if infile.is_dir():
+                sub_dir_result = quick_scan(infile, root)
+                ret.update(sub_dir_result)
+            elif infile.is_file():
+                fsize = infile.stat().st_size
+                relpath = infile.relative_to(root)
+                ret[str(relpath).replace("\\", "/")] = fsize
+                progress_bar.update(1)
+    except PermissionError:
+        print("quick_scan permission err:", str(d))
     return ret
 
 
@@ -224,6 +247,36 @@ def main(argv):
         assert FLAGS.copy_to is not None
         assert FLAGS.changelist_in is not None
         assert False, "not implemented"
+    elif FLAGS.quick_compare is not None:
+        assert FLAGS.snapshot_in is not None
+        root = Path(FLAGS.quick_compare)
+        json_obj = None
+        with open(FLAGS.snapshot_in, "r") as f:
+            json_obj = json.load(f)
+        snapshot = from_json_friendly_snapshot(json_obj["files"])
+
+        print("Collecting folder info")
+        progress_bar = tqdm()
+        scan_result = quick_scan(root, root)
+        progress_bar.close()
+        progress_bar = None
+
+        extra = [x for x in scan_result if x not in snapshot]
+        missing = [x for x in snapshot if x not in scan_result]
+        diff = [x for x, v in snapshot.items() if x in scan_result and v.size != scan_result[x]]
+
+        def pprint(title, l):
+            print(title)
+            if len(l) == 0:
+                print("    Not found.")
+            else:
+                for x in l:
+                    print("    " + x)
+
+        pprint("Extra files:", extra)
+        pprint("Missing files:", missing)
+        pprint("Different files:", diff)
+
     else:
         assert False, "Missing operation mode"
 
