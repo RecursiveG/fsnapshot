@@ -1,0 +1,11 @@
+{
+    "time": "",
+    "files": {
+        "inner": {"is_dir": true},
+        "inner/file.txt": {
+            "is_dir": false,
+            "size": 6,
+            "xxh3": "99fc819aaba2462a"
+        }
+    }
+}

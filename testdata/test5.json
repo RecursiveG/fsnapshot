@@ -1,0 +1,16 @@
+{
+  "time": "",
+  "files": {
+    "10g.bin": {
+      "is_dir": false,
+      "size": 10485760000,
+      "xxh3": "d8e98a5c585850e6"
+    },
+    "folder1": {"is_dir": true},
+    "folder1/file.txt": {
+      "is_dir": false,
+      "size": 6,
+      "xxh3": "99fc819aaba2462a"
+    }
+  }
+}

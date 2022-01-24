@@ -1,0 +1,29 @@
+{
+  "time": "",
+  "files": {
+    "file1": {
+      "is_dir": false,
+      "size": 0,
+      "xxh3": "2d06800538d394c2"
+    },
+    "dir1": {
+      "is_dir": true
+    },
+    "dir2": {
+      "is_dir": true
+    },
+    "dir2/file2": {
+      "is_dir": false,
+      "size": 0,
+      "xxh3": "2d06800538d394c2"
+    },
+    "dir2/dir3": {
+      "is_dir": true
+    },
+    "dir2/dir3/file3": {
+      "is_dir": false,
+      "size": 0,
+      "xxh3": "2d06800538d394c2"
+    }
+  }
+}
