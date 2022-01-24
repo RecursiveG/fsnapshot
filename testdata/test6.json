@@ -1,0 +1,58 @@
+{
+  "old_time": "1",
+  "new_time": "2",
+  "changes": {
+    "dir1": {
+      "old_type": "dir",
+      "new_type": "absent"
+    },
+    "dir1/file1": {
+      "old_type": "file",
+      "old_size": 0,
+      "old_xxh3": "2d06800538d394c2",
+      "new_type": "absent"
+    },
+    "dir4/file4": {
+      "old_type": "file",
+      "old_size": 0,
+      "old_xxh3": "2d06800538d394c2",
+      "new_type": "absent"
+    },
+    "dir3/file3": {
+      "old_type": "file",
+      "old_size": 0,
+      "old_xxh3": "2d06800538d394c2",
+      "new_type": "file",
+      "new_size": 6,
+      "new_xxh3": "99fc819aaba2462a"
+    },
+    "dir2": {
+      "old_type": "absent",
+      "new_type": "dir"
+    },
+    "dir2/file2": {
+      "old_type": "absent",
+      "new_type": "file",
+      "new_size": 0,
+      "new_xxh3": "2d06800538d394c2"
+    },
+    "dir4": {
+      "old_type": "dir",
+      "new_type": "file",
+      "new_size": 0,
+      "new_xxh3": "2d06800538d394c2"
+    },
+    "dir5": {
+      "old_type": "file",
+      "old_size": 0,
+      "old_xxh3": "2d06800538d394c2",
+      "new_type": "dir"
+    },
+    "dir5/file5": {
+      "old_type": "absent",
+      "new_type": "file",
+      "new_size": 0,
+      "new_xxh3": "2d06800538d394c2"
+    }
+  }
+}

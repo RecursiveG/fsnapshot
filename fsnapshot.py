@@ -265,12 +265,16 @@ def main(argv):
     elif FLAGS.diff_snapshot is not None:
         assert FLAGS.snapshot_in is not None
         with open(FLAGS.diff_snapshot, "r") as f:
-            snapshot1 = snapshot_from_obj(json.load(f))
+            obj = json.load(f)
+            snapshot1_time = obj["time"]
+            snapshot1 = snapshot_from_obj(obj)
         with open(FLAGS.snapshot_in, "r") as f:
-            snapshot2 = snapshot_from_obj(json.load(f))
+            obj = json.load(f)
+            snapshot2_time = obj["time"]
+            snapshot2 = snapshot_from_obj(obj)
         diff = diff_snapshot(snapshot1, snapshot2)
         print(
-            json.dumps(diff_to_obj(diff, snapshot1["time"], snapshot2["time"]),
+            json.dumps(diff_to_obj(diff, snapshot1_time, snapshot2_time),
                        ensure_ascii=FLAGS.escape_unicode_in_json,
                        indent=2))
 

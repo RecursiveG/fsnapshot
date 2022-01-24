@@ -14,6 +14,8 @@ function json_eq {
 
 set +e
 
+#if false; then
+
 echo "=== Test 1 : Snapshot one small file"
 rm -rf testdir || true
 mkdir testdir
@@ -98,6 +100,33 @@ pushd testdir > /dev/null
     python ../fsnapshot.py --take_snapshot=. --snapshot_in=../testdir.json --snapshot_out=../testdir.json --testonly_json_time_override=
 
     if json_eq ../testdir.json ../testdata/test5.json; then
+        echo $PASS
+    else
+        echo $FAIL
+        exit
+    fi
+popd > /dev/null
+
+#fi
+
+echo "=== Test 6 : Diff test"
+rm -rf testdir || true
+mkdir testdir
+pushd testdir > /dev/null
+    # remove dir1, add dir2, change dir3, tofile dir4, todir dir5
+    mkdir dir1 && touch dir1/file1
+    mkdir dir3 && touch dir3/file3
+    mkdir dir4 && touch dir4/file4
+    touch dir5
+    python ../fsnapshot.py --take_snapshot=. --snapshot_out=../testdir1.json --testonly_json_time_override=1 --noprogress_bar
+    rm -r dir1
+    mkdir dir2 && touch dir2/file2
+    echo hello > dir3/file3
+    rm -r dir4 && touch dir4
+    rm dir5 && mkdir dir5 && touch dir5/file5
+    python ../fsnapshot.py --take_snapshot=. --snapshot_out=../testdir2.json --testonly_json_time_override=2 --noprogress_bar
+    python ../fsnapshot.py --diff_snapshot=../testdir1.json --snapshot_in=../testdir2.json > ../testdir_diff.json
+    if json_eq ../testdir_diff.json ../testdata/test6.json; then
         echo $PASS
     else
         echo $FAIL
