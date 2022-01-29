@@ -35,14 +35,6 @@ The umask of copied files can be specified. Patch application results will be pr
                [--chmod=<0o777>]
 '''
 
-# initial hash: indir -> outfile
-# update snapshot: indir, old_snapshot -> new_snapshot, changelist
-# copy: src, dst, changelist ->
-#   delete if same hash: delete; else skip;
-#   add    if not exists: add; elif same hash: skip; else rename then add;
-#   overwrite if same hash: overwrite; else rename then add;
-# quick_compare: only compare file name and file size.
-
 from absl import app
 from absl import flags
 from dataclasses import dataclass
@@ -148,7 +140,7 @@ def xxh3_file(fp: Path, progress_bar=None) -> str:
             if not data:
                 break
             xxh3.update(data)
-            if progress_bar:
+            if progress_bar is not None:
                 progress_bar.update(len(data))
     return xxh3.hexdigest()
 
@@ -176,7 +168,7 @@ def take_snapshot(d: Path, progress_bar=None, old_snapshot: Dict[str, FileSnapsh
                     # same name and same size, assuming file unchanged
                     ret[fpath] = old_snapshot[fpath]
                     # update progress_bar at once
-                    if progress_bar:
+                    if progress_bar is not None:
                         progress_bar.update(fsize)
                 else:
                     # recompute, update progress bar in hash function.
@@ -405,23 +397,25 @@ def apply_patch(diff: Dict[str, FileChange], src: Path, dst: Path, chmod: Option
             os.chmod(dst/p, val)
 
 
-# def quick_scan(d: Path, root: Path) -> Dict[str, int]:
-#     global progress_bar
-#     assert d.is_dir(), str(d) + " is not a folder"
-#     ret = dict()
-#     try:
-#         for infile in d.iterdir():
-#             if infile.is_dir():
-#                 sub_dir_result = quick_scan(infile, root)
-#                 ret.update(sub_dir_result)
-#             elif infile.is_file():
-#                 fsize = infile.stat().st_size
-#                 relpath = infile.relative_to(root)
-#                 ret[str(relpath).replace("\\", "/")] = fsize
-#                 progress_bar.update(1)
-#     except PermissionError:
-#         print("quick_scan permission err:", str(d))
-#     return ret
+def quick_scan(d: Path, progress_bar=None) -> Dict[str, Optional[int]]:
+    # Collect name and file size in the folder. size==None if it is a folder.
+    # Return Dict[relative_path, file_size]
+    assert d.is_dir(), str(d) + " is not a folder"
+    def _quick_scan(d: Path, root: Path) ->  Dict[str, Optional[int]]:
+        ret = dict()
+        for infile in d.iterdir():
+            relpath = str(infile.relative_to(root)).replace("\\", "/")
+            if infile.is_dir():
+                ret[relpath] = None
+                sub_dir_result = _quick_scan(infile, root)
+                ret.update(sub_dir_result)
+            elif infile.is_file():
+                fsize = infile.stat().st_size
+                ret[relpath] = fsize
+            if progress_bar is not None:
+                progress_bar.update(1)
+        return ret
+    return _quick_scan(d, d)
 
 
 def dir_size(path: Path) -> int:
@@ -452,7 +446,7 @@ def main(argv):
             total_bytes = dir_size(root)
             progress_bar = tqdm(total=total_bytes, unit='B', unit_scale=True)
         snapshot_data = take_snapshot(root, progress_bar, old_snapshot)
-        if progress_bar:
+        if progress_bar is not None:
             progress_bar.close()
             progress_bar = None
 
@@ -477,35 +471,44 @@ def main(argv):
                        indent=2))
 
     elif FLAGS.quick_compare is not None:
-        assert False, "unimplemented"
-        # assert FLAGS.snapshot_in is not None
-        # root = Path(FLAGS.quick_compare)
-        # json_obj = None
-        # with open(FLAGS.snapshot_in, "r") as f:
-        #     json_obj = json.load(f)
-        # snapshot = from_json_friendly_snapshot(json_obj["files"])
+        #assert False, "unimplemented"
+        assert FLAGS.snapshot_in is not None
+        root = Path(FLAGS.quick_compare)
+        with open(FLAGS.snapshot_in, "r") as f:
+            json_obj = json.load(f)
+            snapshot = snapshot_from_obj(json_obj)
 
-        # print("Collecting folder info")
-        # progress_bar = tqdm()
-        # scan_result = quick_scan(root, root)
-        # progress_bar.close()
-        # progress_bar = None
+        print("Collecting folder info")
+        if FLAGS.progress_bar:
+            progress_bar = tqdm()
+            scan_result = quick_scan(root, progress_bar)
+            progress_bar.close()
+            progress_bar = None
+        else:
+            scan_result = quick_scan(root)
 
-        # extra = [x for x in scan_result if x not in snapshot]
-        # missing = [x for x in snapshot if x not in scan_result]
-        # diff = [x for x, v in snapshot.items() if x in scan_result and v.size != scan_result[x]]
+        def same_size(fs: FileSnapshot, size: Optional[int]) -> bool:
+            if fs.is_dir:
+                return size is None
+            else:
+                return size is not None and fs.size == size
 
-        # def pprint(title, l):
-        #     print(title)
-        #     if len(l) == 0:
-        #         print("    Not found.")
-        #     else:
-        #         for x in l:
-        #             print("    " + x)
+        extra = [x for x in scan_result if x not in snapshot]
+        missing = [x for x in snapshot if x not in scan_result]
+        diff = [x for x, v in snapshot.items() if x in scan_result and not same_size(v, scan_result[x])]
 
-        # pprint("Extra files:", extra)
-        # pprint("Missing files:", missing)
-        # pprint("Different files:", diff)
+        def pretty_print(title, arr):
+            print(title)
+            if len(arr) == 0:
+                print("    Not found.")
+            else:
+                for x in arr:
+                    print("    " + x)
+
+        pretty_print("Extra files:", extra)
+        pretty_print("Missing files:", missing)
+        pretty_print("Different files:", diff)
+
     elif FLAGS.apply_patch is not None:
         assert FLAGS.patch_on is not None
         assert FLAGS.data_source is not None
